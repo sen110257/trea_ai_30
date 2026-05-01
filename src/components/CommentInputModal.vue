@@ -27,7 +27,7 @@
           </button>
         </div>
         <div class="char-count">
-          <span :class="{ warning: commentText.length > 200">{{ commentText.length }}/200</span>
+          <span :class="{ warning: isTextTooLong }">{{ commentText.length }}/200</span>
         </div>
       </div>
       
@@ -109,6 +109,10 @@ const emojis = [
 
 const canSubmit = computed(() => {
   return commentText.value.trim().length > 0 || selectedImages.value.length > 0
+})
+
+const isTextTooLong = computed(() => {
+  return commentText.value.length > 200
 })
 
 const ensureLoggedIn = () => {
