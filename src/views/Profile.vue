@@ -36,18 +36,18 @@
           <span class="stat-label">打卡城市</span>
         </div>
         <div class="stat-divider"></div>
-        <div class="stat-item">
-          <span class="stat-value">{{ myShares }}</span>
+        <div class="stat-item" @click="goToMyShares">
+          <span class="stat-value">{{ userShares.length }}</span>
           <span class="stat-label">我的分享</span>
         </div>
         <div class="stat-divider"></div>
-        <div class="stat-item">
-          <span class="stat-value">{{ browsingHistory.length }}</span>
+        <div class="stat-item" @click="goToBrowsingHistory">
+          <span class="stat-value">{{ browsingHistoryList.length }}</span>
           <span class="stat-label">浏览历史</span>
         </div>
         <div class="stat-divider"></div>
-        <div class="stat-item">
-          <span class="stat-value">{{ favorites.length }}</span>
+        <div class="stat-item" @click="goToFavorites">
+          <span class="stat-value">{{ favoriteCities.length }}</span>
           <span class="stat-label">收藏地标</span>
         </div>
       </div>
@@ -111,7 +111,7 @@
       </div>
       
       <div class="menu-list">
-        <div class="menu-item card" @click="handleFeedback">
+        <div class="menu-item card" @click="goToFeedback">
           <div class="menu-icon" style="background: linear-gradient(135deg, #722ed1 0%, #9254de 100%);">
             <span>💬</span>
           </div>
@@ -148,6 +148,192 @@
       :message="loginMessage"
       @update:show="showLoginModal = $event" 
     />
+
+    <div v-if="showListModal" class="list-modal-mask" @click.self="closeListModal">
+      <div class="list-modal-content">
+        <div class="list-modal-header">
+          <h3 class="list-modal-title">{{ modalTitle }}</h3>
+          <button class="list-modal-close" @click="closeListModal">✕</button>
+        </div>
+
+        <div v-if="activeModal === 'history'" class="list-content">
+          <div v-if="browsingHistoryList.length > 0" class="list-header-actions">
+            <button class="clear-btn" @click="clearBrowsingHistory">
+              清空历史
+            </button>
+          </div>
+          
+          <div v-if="browsingHistoryList.length > 0" class="item-list">
+            <div 
+              v-for="city in browsingHistoryList" 
+              :key="city.id"
+              class="list-item card"
+              @click="goToCityDetail(city.id)"
+            >
+              <div class="item-image-wrapper">
+                <img 
+                  v-if="city.image" 
+                  :src="city.image" 
+                  :alt="city.name"
+                  class="item-image"
+                  @error="handleImageError($event)"
+                />
+                <div v-else class="item-image-placeholder">
+                  <span>🏙️</span>
+                </div>
+              </div>
+              <div class="item-info">
+                <h4 class="item-name">{{ city.name || '未知城市' }}</h4>
+                <p class="item-desc">{{ (city.description || '').substring(0, 30) + '...' }}</p>
+              </div>
+              <span class="item-arrow">›</span>
+            </div>
+          </div>
+          
+          <div v-else class="empty-state">
+            <div class="empty-icon">📖</div>
+            <p class="empty-text">暂无浏览记录</p>
+          </div>
+        </div>
+
+        <div v-if="activeModal === 'favorites'" class="list-content">
+          <div v-if="favoriteCities.length > 0" class="item-list">
+            <div 
+              v-for="city in favoriteCities" 
+              :key="city.id"
+              class="list-item card"
+            >
+              <div class="item-image-wrapper" @click="goToCityDetail(city.id)">
+                <img 
+                  v-if="city.image" 
+                  :src="city.image" 
+                  :alt="city.name"
+                  class="item-image"
+                  @error="handleImageError($event)"
+                />
+                <div v-else class="item-image-placeholder">
+                  <span>🏙️</span>
+                </div>
+              </div>
+              <div class="item-info" @click="goToCityDetail(city.id)">
+                <h4 class="item-name">{{ city.name || '未知城市' }}</h4>
+                <p class="item-desc">{{ (city.description || '').substring(0, 30) + '...' }}</p>
+              </div>
+              <button class="unfavorite-btn" @click.stop="removeFavorite(city.id)">
+                取消收藏
+              </button>
+            </div>
+          </div>
+          
+          <div v-else class="empty-state">
+            <div class="empty-icon">❤️</div>
+            <p class="empty-text">暂无收藏内容</p>
+          </div>
+        </div>
+
+        <div v-if="activeModal === 'shares'" class="list-content">
+          <div v-if="userShares.length > 0" class="item-list">
+            <div 
+              v-for="share in userShares" 
+              :key="share.id"
+              class="share-item card"
+            >
+              <div class="share-header">
+                <span class="share-type-tag" :class="share.type">
+                  {{ getShareTypeLabel(share.type) }}
+                </span>
+                <span class="share-time">{{ share.createdAt || '' }}</span>
+              </div>
+              
+              <div v-if="share.cityName" class="share-city">
+                <span>📍 {{ share.cityName }}</span>
+              </div>
+              
+              <p class="share-content">{{ share.content || '' }}</p>
+              
+              <div v-if="share.images && share.images.length > 0" class="share-images">
+                <img 
+                  v-for="(img, idx) in share.images.slice(0, 3)" 
+                  :key="idx"
+                  :src="img"
+                  class="share-image"
+                  @error="handleImageError($event)"
+                />
+              </div>
+              
+              <div class="share-actions">
+                <button class="delete-btn" @click="deleteShare(share.id)">
+                  删除
+                </button>
+              </div>
+            </div>
+          </div>
+          
+          <div v-else class="empty-state">
+            <div class="empty-icon">📝</div>
+            <p class="empty-text">暂无分享内容</p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div v-if="showFeedbackModal" class="feedback-modal-mask" @click.self="closeFeedbackModal">
+      <div class="feedback-modal-content">
+        <div class="feedback-modal-header">
+          <h3 class="feedback-modal-title">意见反馈</h3>
+          <button class="feedback-modal-close" @click="closeFeedbackModal">✕</button>
+        </div>
+        
+        <div class="feedback-form">
+          <div class="form-item">
+            <label class="form-label">反馈类型</label>
+            <div class="type-options">
+              <span 
+                v-for="type in feedbackTypes" 
+                :key="type.value"
+                class="type-option"
+                :class="{ active: feedbackForm.type === type.value }"
+                @click="feedbackForm.type = type.value"
+              >
+                {{ type.label }}
+              </span>
+            </div>
+          </div>
+          
+          <div class="form-item">
+            <label class="form-label">问题描述</label>
+            <textarea 
+              v-model="feedbackForm.content"
+              class="form-textarea"
+              placeholder="请详细描述您遇到的问题或建议..."
+              rows="5"
+            ></textarea>
+            <div class="char-count">
+              {{ feedbackForm.content.length }}/500
+            </div>
+          </div>
+          
+          <div class="form-item">
+            <label class="form-label">联系方式（选填）</label>
+            <input 
+              v-model="feedbackForm.contact"
+              type="text"
+              class="form-input"
+              placeholder="手机号或邮箱，方便我们联系您"
+            />
+          </div>
+        </div>
+        
+        <button 
+          class="submit-feedback-btn" 
+          :class="{ disabled: !canSubmitFeedback }"
+          @click="submitFeedback"
+          :disabled="!canSubmitFeedback"
+        >
+          提交反馈
+        </button>
+      </div>
+    </div>
   </div>
 </template>
 
@@ -165,11 +351,35 @@ const cityStore = useCityStore()
 
 const showLoginModal = ref(false)
 const loginMessage = ref('')
-const myShares = ref(0)
+
+const showListModal = ref(false)
+const activeModal = ref('')
+const modalTitle = ref('')
+
+const showFeedbackModal = ref(false)
+
+const feedbackTypes = [
+  { label: '功能问题', value: 'bug' },
+  { label: '产品建议', value: 'suggestion' },
+  { label: '其他', value: 'other' }
+]
+
+const feedbackForm = ref({
+  type: 'bug',
+  content: '',
+  contact: ''
+})
+
+const userShares = ref([])
 
 onMounted(() => {
   userStore.initFromStorage()
   cityStore.initFromStorage()
+  loadUserShares()
+})
+
+const canSubmitFeedback = computed(() => {
+  return feedbackForm.value.content.trim().length > 0
 })
 
 const visitedCityIds = computed(() => {
@@ -179,14 +389,22 @@ const visitedCityIds = computed(() => {
 
 const visitedCount = computed(() => visitedCityIds.value.length)
 
-const browsingHistory = computed(() => {
+const browsingHistoryList = computed(() => {
   const ids = cityStore.browsingHistory || []
-  return ids.filter(id => id && !isNaN(parseInt(id))).map(id => parseInt(id))
+  const validIds = ids.filter(id => id && !isNaN(parseInt(id))).map(id => parseInt(id))
+  
+  return validIds
+    .map(id => getCityById(id))
+    .filter(city => city && city.id)
 })
 
-const favorites = computed(() => {
+const favoriteCities = computed(() => {
   const ids = cityStore.favorites || []
-  return ids.filter(id => id && !isNaN(parseInt(id))).map(id => parseInt(id))
+  const validIds = ids.filter(id => id && !isNaN(parseInt(id))).map(id => parseInt(id))
+  
+  return validIds
+    .map(id => getCityById(id))
+    .filter(city => city && city.id)
 })
 
 const handleLogin = () => {
@@ -204,6 +422,10 @@ const handleLogout = () => {
   }
 }
 
+const handleImageError = (event) => {
+  event.target.style.display = 'none'
+}
+
 const goToMyCities = () => {
   if (!userStore.isLoggedIn) {
     loginMessage.value = '查看我的打卡相册需要登录后才能进行，请先登录。'
@@ -219,7 +441,9 @@ const goToBrowsingHistory = () => {
     showLoginModal.value = true
     return
   }
-  alert('浏览历史功能：展示最近浏览过的城市列表')
+  activeModal.value = 'history'
+  modalTitle.value = '浏览历史'
+  showListModal.value = true
 }
 
 const goToFavorites = () => {
@@ -228,7 +452,9 @@ const goToFavorites = () => {
     showLoginModal.value = true
     return
   }
-  alert('我的收藏功能：展示收藏的城市和地标')
+  activeModal.value = 'favorites'
+  modalTitle.value = '我的收藏'
+  showListModal.value = true
 }
 
 const goToMyShares = () => {
@@ -237,15 +463,118 @@ const goToMyShares = () => {
     showLoginModal.value = true
     return
   }
-  alert('我的分享功能：展示我发布的所有游玩分享')
+  activeModal.value = 'shares'
+  modalTitle.value = '我的分享'
+  loadUserShares()
+  showListModal.value = true
 }
 
-const handleFeedback = () => {
-  alert('意见反馈功能：可输入反馈内容和联系方式')
+const goToFeedback = () => {
+  if (!userStore.isLoggedIn) {
+    loginMessage.value = '提交意见反馈需要登录后才能进行，请先登录。'
+    showLoginModal.value = true
+    return
+  }
+  showFeedbackModal.value = true
 }
 
 const handleAbout = () => {
   alert('关于我们：\n城市地标打卡图鉴 v1.0.0\n\n这是一款专注于城市旅行打卡的应用，帮助用户记录旅行足迹，发现更多美好城市。')
+}
+
+const closeListModal = () => {
+  showListModal.value = false
+  activeModal.value = ''
+  modalTitle.value = ''
+}
+
+const closeFeedbackModal = () => {
+  showFeedbackModal.value = false
+  feedbackForm.value = {
+    type: 'bug',
+    content: '',
+    contact: ''
+  }
+}
+
+const clearBrowsingHistory = () => {
+  if (confirm('确定要清空所有浏览历史吗？')) {
+    cityStore.browsingHistory = []
+    localStorage.setItem('browsingHistory', '[]')
+  }
+}
+
+const removeFavorite = (cityId) => {
+  if (!cityId) return
+  cityStore.toggleFavorite(cityId)
+}
+
+const goToCityDetail = (cityId) => {
+  if (!cityId) return
+  closeListModal()
+  router.push(`/city-detail/${cityId}`)
+}
+
+const loadUserShares = () => {
+  try {
+    const stored = localStorage.getItem('userShares')
+    if (stored) {
+      userShares.value = JSON.parse(stored)
+    }
+  } catch (e) {
+    console.warn('Failed to load user shares:', e)
+    userShares.value = []
+  }
+}
+
+const saveUserShares = () => {
+  try {
+    localStorage.setItem('userShares', JSON.stringify(userShares.value))
+  } catch (e) {
+    console.warn('Failed to save user shares:', e)
+  }
+}
+
+const getShareTypeLabel = (type) => {
+  const labels = {
+    food: '美食',
+    scenery: '美景',
+    attraction: '游玩'
+  }
+  return labels[type] || '分享'
+}
+
+const deleteShare = (shareId) => {
+  if (!shareId) return
+  if (confirm('确定要删除这条分享吗？')) {
+    const index = userShares.value.findIndex(s => s.id === shareId)
+    if (index > -1) {
+      userShares.value.splice(index, 1)
+      saveUserShares()
+    }
+  }
+}
+
+const submitFeedback = () => {
+  if (!canSubmitFeedback.value) return
+  
+  const feedbackData = {
+    id: Date.now(),
+    ...feedbackForm.value,
+    createdAt: new Date().toLocaleString('zh-CN')
+  }
+  
+  try {
+    const stored = localStorage.getItem('feedbacks') || '[]'
+    const feedbacks = JSON.parse(stored)
+    feedbacks.push(feedbackData)
+    localStorage.setItem('feedbacks', JSON.stringify(feedbacks))
+  } catch (e) {
+    console.warn('Failed to save feedback:', e)
+  }
+  
+  alert('感谢您的反馈！我们会认真处理您的意见。')
+  closeFeedbackModal()
 }
 </script>
 
@@ -439,5 +768,344 @@ const handleAbout = () => {
   font-size: 15px;
   font-weight: 500;
   border: 1px solid #ffccc7;
+}
+
+.list-modal-mask,
+.feedback-modal-mask {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.5);
+  z-index: 3000;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+}
+
+.list-modal-content,
+.feedback-modal-content {
+  background: #fff;
+  border-radius: 20px 20px 0 0;
+  max-height: 80vh;
+  display: flex;
+  flex-direction: column;
+  padding-bottom: env(safe-area-inset-bottom);
+}
+
+.list-modal-header,
+.feedback-modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 16px 20px;
+  border-bottom: 1px solid #f0f0f0;
+  flex-shrink: 0;
+}
+
+.list-modal-title,
+.feedback-modal-title {
+  font-size: 16px;
+  font-weight: 600;
+  color: #333;
+}
+
+.list-modal-close,
+.feedback-modal-close {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: #f5f7fa;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 14px;
+  color: #999;
+}
+
+.list-content {
+  flex: 1;
+  overflow-y: auto;
+  padding: 16px 20px;
+}
+
+.list-header-actions {
+  display: flex;
+  justify-content: flex-end;
+  margin-bottom: 12px;
+}
+
+.clear-btn {
+  font-size: 13px;
+  color: #ff4d4f;
+  background: rgba(255, 77, 79, 0.1);
+  padding: 6px 12px;
+  border-radius: 12px;
+}
+
+.item-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.list-item {
+  display: flex;
+  align-items: center;
+  padding: 12px;
+  cursor: pointer;
+}
+
+.item-image-wrapper {
+  width: 60px;
+  height: 60px;
+  border-radius: 8px;
+  overflow: hidden;
+  flex-shrink: 0;
+}
+
+.item-image {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.item-image-placeholder {
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(135deg, #f5f7fa 0%, #e4e8ec 100%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 24px;
+}
+
+.item-info {
+  flex: 1;
+  margin-left: 12px;
+  min-width: 0;
+}
+
+.item-name {
+  font-size: 14px;
+  font-weight: 600;
+  color: #333;
+  margin-bottom: 4px;
+}
+
+.item-desc {
+  font-size: 12px;
+  color: #999;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.item-arrow {
+  font-size: 16px;
+  color: #ccc;
+  flex-shrink: 0;
+}
+
+.unfavorite-btn {
+  font-size: 12px;
+  color: #ff4d4f;
+  background: rgba(255, 77, 79, 0.1);
+  padding: 6px 12px;
+  border-radius: 12px;
+  flex-shrink: 0;
+}
+
+.share-item {
+  padding: 16px;
+}
+
+.share-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 8px;
+}
+
+.share-type-tag {
+  font-size: 11px;
+  padding: 4px 10px;
+  border-radius: 10px;
+  font-weight: 500;
+}
+
+.share-type-tag.food {
+  background: rgba(250, 173, 20, 0.1);
+  color: #faad14;
+}
+
+.share-type-tag.scenery {
+  background: rgba(82, 196, 26, 0.1);
+  color: #52c41a;
+}
+
+.share-type-tag.attraction {
+  background: rgba(102, 126, 234, 0.1);
+  color: #667eea;
+}
+
+.share-time {
+  font-size: 11px;
+  color: #999;
+}
+
+.share-city {
+  font-size: 12px;
+  color: #667eea;
+  margin-bottom: 8px;
+}
+
+.share-content {
+  font-size: 13px;
+  color: #333;
+  line-height: 1.6;
+  margin-bottom: 12px;
+}
+
+.share-images {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.share-image {
+  width: 80px;
+  height: 80px;
+  border-radius: 8px;
+  object-fit: cover;
+}
+
+.share-actions {
+  display: flex;
+  justify-content: flex-end;
+  padding-top: 12px;
+  border-top: 1px solid #f0f0f0;
+}
+
+.delete-btn {
+  font-size: 12px;
+  color: #ff4d4f;
+  background: rgba(255, 77, 79, 0.1);
+  padding: 6px 12px;
+  border-radius: 12px;
+}
+
+.empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 60px 20px;
+}
+
+.empty-state .empty-icon {
+  font-size: 48px;
+  margin-bottom: 16px;
+}
+
+.empty-state .empty-text {
+  font-size: 14px;
+  color: #999;
+}
+
+.feedback-form {
+  padding: 16px 20px;
+  flex: 1;
+  overflow-y: auto;
+}
+
+.form-item {
+  margin-bottom: 20px;
+}
+
+.form-label {
+  display: block;
+  font-size: 14px;
+  font-weight: 500;
+  color: #333;
+  margin-bottom: 10px;
+}
+
+.type-options {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.type-option {
+  font-size: 13px;
+  color: #666;
+  background: #f5f7fa;
+  padding: 8px 16px;
+  border-radius: 16px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.type-option.active {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: #fff;
+}
+
+.form-textarea {
+  width: 100%;
+  min-height: 120px;
+  padding: 12px;
+  background: #f5f7fa;
+  border-radius: 12px;
+  font-size: 14px;
+  color: #333;
+  border: none;
+  outline: none;
+  resize: none;
+  line-height: 1.6;
+}
+
+.form-textarea::placeholder {
+  color: #999;
+}
+
+.char-count {
+  text-align: right;
+  font-size: 12px;
+  color: #999;
+  margin-top: 4px;
+}
+
+.form-input {
+  width: 100%;
+  padding: 12px;
+  background: #f5f7fa;
+  border-radius: 12px;
+  font-size: 14px;
+  color: #333;
+  border: none;
+  outline: none;
+}
+
+.form-input::placeholder {
+  color: #999;
+}
+
+.submit-feedback-btn {
+  margin: 0 20px 20px;
+  padding: 14px;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: #fff;
+  border-radius: 25px;
+  font-size: 15px;
+  font-weight: 500;
+  flex-shrink: 0;
+}
+
+.submit-feedback-btn.disabled {
+  background: #ccc;
+  cursor: not-allowed;
 }
 </style>

@@ -183,6 +183,15 @@
             </div>
           </div>
           <p class="comment-content">{{ comment.content || '' }}</p>
+          <div v-if="comment.images && comment.images.length > 0" class="comment-images">
+            <img 
+              v-for="(img, idx) in comment.images" 
+              :key="idx"
+              :src="img" 
+              class="comment-image"
+              @error="handleImageError($event)"
+            />
+          </div>
           <div class="comment-actions">
             <button class="comment-action-btn" @click="handleCommentLike(comment)">
               <span>{{ commentLiked[comment.id] ? '❤️' : '🤍' }}</span>
@@ -216,6 +225,16 @@
       :message="loginMessage"
       @update:show="showLoginModal = $event" 
     />
+    
+    <CommentInputModal
+      :show="showCommentModal"
+      :target-id="commentTargetId"
+      :target-type="commentTargetType"
+      :target-name="commentTargetName"
+      @update:show="showCommentModal = $event"
+      @need-login="handleCommentNeedLogin"
+      @submit="handleCommentSubmit"
+    />
   </div>
 </template>
 
@@ -231,6 +250,7 @@ import {
 } from '../data/mockData'
 import { useCityStore, useUserStore, useAppStore } from '../stores'
 import LoginModal from '../components/LoginModal.vue'
+import CommentInputModal from '../components/CommentInputModal.vue'
 
 const route = useRoute()
 const router = useRouter()
@@ -245,7 +265,32 @@ const showLoginModal = ref(false)
 const loginMessage = ref('')
 const landmarkLiked = ref({})
 const commentLiked = ref({})
+const showCommentModal = ref(false)
+const commentTargetId = ref(null)
+const commentTargetType = ref('city')
+const commentTargetName = ref('')
+const localComments = ref([])
 let carouselInterval = null
+
+const loadLocalComments = () => {
+  try {
+    const stored = localStorage.getItem('localComments')
+    if (stored) {
+      localComments.value = JSON.parse(stored)
+    }
+  } catch (e) {
+    console.warn('Failed to load local comments:', e)
+    localComments.value = []
+  }
+}
+
+const saveLocalComments = () => {
+  try {
+    localStorage.setItem('localComments', JSON.stringify(localComments.value))
+  } catch (e) {
+    console.warn('Failed to save local comments:', e)
+  }
+}
 
 const cityId = computed(() => {
   const id = route.params.cityId
@@ -281,7 +326,17 @@ const foodCount = computed(() => foods.value.length)
 
 const comments = computed(() => {
   if (!cityId.value) return []
-  return getCommentsByTarget(cityId.value, 'city') || []
+  const mockComments = getCommentsByTarget(cityId.value, 'city') || []
+  const localCommentsForCity = localComments.value.filter(
+    c => c.targetId == cityId.value && c.targetType === 'city'
+  )
+  const allComments = [...localCommentsForCity, ...mockComments]
+  return allComments.sort((a, b) => {
+    if (a.createdAt && b.createdAt) {
+      return new Date(b.createdAt) - new Date(a.createdAt)
+    }
+    return (b.id || 0) - (a.id || 0)
+  })
 })
 
 const isVisited = computed(() => {
@@ -297,6 +352,7 @@ const isFavorited = computed(() => {
 onMounted(() => {
   cityStore.initFromStorage()
   userStore.initFromStorage()
+  loadLocalComments()
   
   if (cityId.value) {
     cityStore.addToBrowsingHistory(cityId.value)
@@ -376,13 +432,11 @@ const handleLandmarkLike = (landmark) => {
 }
 
 const handleLandmarkComment = (landmark) => {
-  if (!userStore.isLoggedIn) {
-    loginMessage.value = '发表评论需要登录后才能进行，请先登录。'
-    showLoginModal.value = true
-    return
-  }
-  
-  alert(`前往地标「${landmark.name || ''}」的评论区`)
+  if (!landmark || !landmark.id) return
+  commentTargetId.value = landmark.id
+  commentTargetType.value = 'landmark'
+  commentTargetName.value = landmark.name || ''
+  showCommentModal.value = true
 }
 
 const handleCommentLike = (comment) => {
@@ -407,13 +461,23 @@ const handleReply = (comment) => {
 }
 
 const handleCommentInput = () => {
-  if (!userStore.isLoggedIn) {
-    loginMessage.value = '发表评论需要登录后才能进行，请先登录。'
-    showLoginModal.value = true
-    return
-  }
+  commentTargetId.value = cityId.value
+  commentTargetType.value = 'city'
+  commentTargetName.value = city.value?.name || ''
+  showCommentModal.value = true
+}
+
+const handleCommentNeedLogin = () => {
+  showCommentModal.value = false
+  loginMessage.value = '发表评论需要登录后才能进行，请先登录。'
+  showLoginModal.value = true
+}
+
+const handleCommentSubmit = (commentData) => {
+  if (!commentData) return
   
-  alert('评论输入功能：可输入文字、添加表情、上传图片')
+  localComments.value.push(commentData)
+  saveLocalComments()
 }
 
 const getCommentCount = (targetId, targetType) => {
@@ -804,6 +868,20 @@ const scrollToLandmark = (landmarkId) => {
   color: #666;
   line-height: 1.6;
   margin-bottom: 12px;
+}
+
+.comment-images {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.comment-image {
+  width: 80px;
+  height: 80px;
+  object-fit: cover;
+  border-radius: 8px;
 }
 
 .comment-actions {
