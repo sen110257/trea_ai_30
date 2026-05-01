@@ -411,6 +411,28 @@ const submitPublish = () => {
     return
   }
   
+  const city = getCityById(parseInt(publishForm.value.cityId))
+  
+  const shareData = {
+    id: Date.now(),
+    userId: userStore.userInfo?.id || 1,
+    cityId: parseInt(publishForm.value.cityId),
+    cityName: city?.name || '',
+    type: publishForm.value.type,
+    content: publishForm.value.content.trim(),
+    images: [],
+    createdAt: new Date().toLocaleString('zh-CN')
+  }
+  
+  try {
+    const stored = localStorage.getItem('userShares') || '[]'
+    const shares = JSON.parse(stored)
+    shares.unshift(shareData)
+    localStorage.setItem('userShares', JSON.stringify(shares))
+  } catch (e) {
+    console.warn('Failed to save share:', e)
+  }
+  
   alert('发布成功！内容已保存到个人记录中')
   showPublishModal.value = false
   publishForm.value = {
